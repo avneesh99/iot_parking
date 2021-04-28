@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:iot_parking/model/CustomUser.dart';
 import 'package:iot_parking/model/Parking.dart';
 import 'package:iot_parking/services/DatabaseService.dart';
+import 'package:iot_parking/services/auth.dart';
 import 'package:provider/provider.dart';
 
 class Home extends StatefulWidget {
@@ -12,6 +13,7 @@ class Home extends StatefulWidget {
 class _HomeState extends State<Home> {
   Stream<List<Parking>> _parkingStream;
   final _databaseService = DatabaseService();
+  final AuthService _auth = AuthService();
   @override
   void initState() {
     super.initState();
@@ -32,62 +34,79 @@ class _HomeState extends State<Home> {
       StreamBuilder<List<Parking>>(
         stream: _parkingStream,
         builder: (context, snapshot) {
-          return Container(
-            child: Column(
-              children: [
-                ListView.builder(
-                    itemCount: snapshot.data.length,
-                    itemBuilder: (context, index)  {
-                      Parking spot = snapshot.data[index];
-                      return InkWell(
-                        onTap: () {
-                          if (spot.rsid == null) {
-                            showModalBottomSheet(
-                                context: context,
-                                builder: (context) => PayBottomSheet(
-                                  amountToPay:null,duration:null,
-                                  parkingID: spot.parkingID,
-                                  databaseService: _databaseService,
-                                  uid: userDetails.uid,
-                                )
+          if (snapshot.hasData && snapshot.data != null) {
+            print("***********");
+            print(snapshot.data.length);
+            print("***********");
+            return Container(
+                width: MediaQuery.of(context).size.width,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Container(
+                      width: MediaQuery.of(context).size.width,
+                      height:200,
+                      child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          itemCount: snapshot.data.length,
+                          itemBuilder: (context, index)  {
+                            Parking spot = snapshot.data[index];
+                            return InkWell(
+                              onTap: () {
+                                if (spot.rsid == null) {
+                                  showModalBottomSheet(
+                                      context: context,
+                                      builder: (context) => PayBottomSheet(
+                                        amountToPay:null,duration:null,
+                                        parkingID: spot.parkingID,
+                                        databaseService: _databaseService,
+                                        rsid: userDetails.rsid,
+                                        isSet: false,
+                                      )
+                                  );
+                                } else if (spot.rsid == userDetails.rsid) {
+                                  if (spot.tillPaidTime >= DateTime.now().millisecondsSinceEpoch) {
+                                    _databaseService.setParking(parkingID:spot.parkingID,rsid:null, durationInMilliseconds: 0,);
+                                  } else {
+                                    showModalBottomSheet(
+                                        context: context,
+                                        builder: (context) => PayBottomSheet(
+                                            amountToPay: 100,duration: DateTime.now().millisecondsSinceEpoch - spot.tillPaidTime,
+                                            parkingID: spot.parkingID,
+                                            databaseService: _databaseService,
+                                            rsid: null,
+                                            isSet: true,
+                                        )
+                                    );
+                                  }
+                                }
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(vertical: 20,horizontal: 20),
+                                padding: const EdgeInsets.symmetric(horizontal: 10),
+                                height: 30,
+                                width: 80,
+                                child: Center(child: Text(spot.parkingID,style: TextStyle(color: Colors.white, fontSize: 15),)),
+                                color: spot.rsid == null ? Colors.green : Colors.red,
+                              ),
                             );
-                          } else if (spot.rsid == userDetails.rsid) {
-                            if (spot.tillPaidTime >= DateTime.now().millisecondsSinceEpoch) {
-                              _databaseService.setParking(parkingID:spot.parkingID, uid:null, durationInMilliseconds: 0,);
-                            } else {
-                                showModalBottomSheet(
-                                    context: context,
-                                    builder: (context) => PayBottomSheet(
-                                      amountToPay: 100,duration: DateTime.now().millisecondsSinceEpoch - spot.tillPaidTime,
-                                      parkingID: spot.parkingID,
-                                      databaseService: _databaseService,
-                                      uid: null
-                                    )
-                                );
-                            }
                           }
-                        },
-                        child: ListTile(
-                          title: Text(spot.parkingID),
-                          tileColor: spot.rsid == null ? Colors.green : Colors.red,
-                        ),
-                      );
-                    }
-                ),
-                FlatButton(
-                  color: Colors.white,
-                  child: Text("CLICK"),
-                  onPressed: () async {
-                    _databaseService.setParking(
-                        parkingID:"parking_three",
-                        uid:null,
-                        durationInMilliseconds: 1000
-                    );
-                  },
-                ),
-              ],
-            )
-          );
+                      ),
+                    ),
+                    FlatButton(
+                      color: Colors.white,
+                      child: Text("CLICK"),
+                      onPressed: () async {
+                        _auth.signOut();
+                      },
+                    ),
+                  ],
+                )
+            );
+          } else {
+            return Container();
+          }
+
         }
       )
     );
@@ -95,13 +114,32 @@ class _HomeState extends State<Home> {
 }
 
 
-class PayBottomSheet extends StatelessWidget {
+class PayBottomSheet extends StatefulWidget {
+  final bool isSet;
   final int amountToPay;
   final int duration;
   final String parkingID;
   final DatabaseService databaseService;
-  final String uid;
-  PayBottomSheet({this.amountToPay, this.duration, this.parkingID, this.databaseService, this.uid});
+  final String rsid;
+  PayBottomSheet({this.amountToPay, this.duration, this.parkingID, this.databaseService, this.rsid, this.isSet});
+
+  @override
+  _PayBottomSheetState createState() => _PayBottomSheetState();
+}
+
+class _PayBottomSheetState extends State<PayBottomSheet> {
+  int value = 0;
+  int amount = 0;
+  @override
+  void initState() {
+    super.initState();
+    if (widget.duration != null) {
+      setState(() {
+        value = widget.duration ;
+        amount = widget.amountToPay;
+      });
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -110,16 +148,23 @@ class PayBottomSheet extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Text(
-              "Confirm booking parking slot : $parkingID for ${duration / (1000 * 60 * 60)} hours"
+          widget.isSet ? Container() : TextField(
+            keyboardType: TextInputType.number,
+            onChanged: (val) {
+              setState(() {
+                value = int.parse(val) * (1000 * 60 * 60);
+                amount = int.parse(val) * 100;
+              });
+            },
           ),
-          FlatButton(
+          value == 0? Container() : Text("Confirm booking parking slot : ${widget.parkingID} for ${value / (1000 * 60 * 60)} hours"),
+          value == 0? Container() : FlatButton(
               onPressed: () async{
-                await databaseService.setParking(parkingID:parkingID, uid:uid, durationInMilliseconds: duration,);
+                await widget.databaseService.setParking(parkingID:widget.parkingID, rsid:widget.rsid, durationInMilliseconds: value,);
                 Navigator.pop(context);
               },
               color: Colors.green,
-              child: Text("PAY Rs. $amountToPay")
+              child: Text("PAY Rs. $amount")
           )
         ],
       ),

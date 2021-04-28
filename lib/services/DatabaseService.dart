@@ -41,12 +41,12 @@ class DatabaseService {
     }
   }
 
-  Future setParking({String parkingID, String uid, int durationInMilliseconds}) async {
+  Future setParking({String parkingID, String rsid, int durationInMilliseconds}) async {
     try {
       int time = DateTime.now().millisecondsSinceEpoch;
       await parkingCollection.doc(parkingID).set({
         "parkingID":parkingID,
-        "userUID":uid,
+        "rsid": rsid,
         "startTime": time,
         "tillPaidTime": time + durationInMilliseconds
       });

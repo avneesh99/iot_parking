@@ -150,7 +150,8 @@ class _SignInState extends State<SignIn> {
                       });
                     },
                     child: Text(
-                      showRegister ? "I want to sign in" : "I want to register"
+                      showRegister ? "I want to sign in" : "I want to register",
+                      style: TextStyle(color: Colors.white, fontSize: 18),
                     ),
                   )
                 ],
