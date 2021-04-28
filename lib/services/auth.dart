@@ -1,7 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:iot_parking/model/CustomUser.dart';
-import 'package:iot_parking/model/DatabaseService.dart';
+import 'package:iot_parking/services/DatabaseService.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
